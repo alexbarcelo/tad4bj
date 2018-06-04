@@ -33,7 +33,12 @@ def get(args):
 
 def set(args):
     job_id = _sanitize_job_id(args)
-    args.data_storage.set_value(job_id, args.field, args.value)
+
+    if args.value == '-':
+        value = sys.stdin.read()
+    else:
+        value = args.value
+    args.data_storage.set_value(job_id, args.field, value)
 
 
 def setdict(args):
