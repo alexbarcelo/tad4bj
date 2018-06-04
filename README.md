@@ -1,2 +1,2 @@
-# rad4bj
-Relational Annotations of Data for Batch Jobs
+# tad4bj
+Tabular Annotations of Data for Batch Jobs

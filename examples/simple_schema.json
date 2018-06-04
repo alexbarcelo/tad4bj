@@ -1,0 +1,8 @@
+{
+  "fields": [
+    ["id", "integer"],
+    ["start", "date"],
+    ["description", "text"],
+    ["flag", "integer"]
+  ]
+}
