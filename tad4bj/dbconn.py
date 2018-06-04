@@ -58,21 +58,33 @@ class JobHandler(object):
         except KeyError:
             pass
 
-        data = self._data.get_value(self._id, item)
-        if data is None:
+        raw_data = self._data.get_value(self._id, item)
+        if raw_data is None:
             raise KeyError("Field %s is NULL" % item)
+
+        data = self._data.get_field_transformer(item).from_db(raw_data)
         self._inmemory_objects[item] = data
         return data
 
     def __setitem__(self, key, value):
-        self._data.set_value(self._id, key, value)
+        tf = self._data.get_field_transformer(key)
+        raw_data = tf.to_db(value)
+
+        self._data.set_value(self._id, key, raw_data)
         self._inmemory_objects[key] = value
 
     def __contains__(self, item):
         return self._data.get_value(self._id, item) is not None
 
     def commit(self):
-        self._data.update_values(self._id, self._inmemory_objects)
+        fields = []
+        values = []
+        for field_name, field_value in self._inmemory_objects.items():
+            t = self._data.get_field_transformer(field_name)
+            fields.append(field_name)
+            values.append(t.to_db(field_value))
+
+        self._data.set_values(self._id, fields, values)
         self._inmemory_objects.clear()
         self._data._conn.commit()
 
@@ -138,7 +150,7 @@ class DataStorage(object):
         self._cursor.executemany("INSERT INTO `%s_tamd` (field, type) values (?, ?)" %
                                  (self._table,), self._metadata.items())
 
-    def _get_transformer(self, field_name):
+    def get_field_transformer(self, field_name):
         try:
             # Fast scenario: the transformer is cached in its place
             return self._field_transformers[field_name]
@@ -167,34 +179,26 @@ class DataStorage(object):
     def get_value(self, jobid, field):
         self._cursor.execute("SELECT `%s` FROM `%s` WHERE id=?" %
                              (field, self._table), (jobid,))
-        data = self._cursor.fetchone()[0]
-
-        t = self._get_transformer(field)
-        return t.from_db(data)
+        return self._cursor.fetchone()[0]
 
     def set_value(self, jobid, field, value):
-        t = self._get_transformer(field)
-        value = t.to_db(value)
-
         ex = self._cursor.execute("UPDATE `%s` SET `%s` = ? WHERE id = ?" %
                                   (self._table, field), (value, jobid))
         if ex.rowcount == 0:
             self._cursor.execute("INSERT INTO `%s` (id, `%s`) VALUES (?, ?)" %
                                  (self._table, field), (jobid, value))
 
-    def update_values(self, jobid, value_map):
-        values = []
-        fields = []
-
-        for field_name, field_value in value_map.items():
-            t = self._get_transformer(field_name)
-            fields.append(field_name)
-            values.append(t.to_db(field_value))
-
+    def set_values(self, jobid, fields, values):
         set_str = ", ".join("`%s` = ?" % field_name for field_name in fields)
-        values.append(jobid)
-        self._cursor.execute("UPDATE `%s` SET %s WHERE id = ?" %
-                             (self._table, set_str), values)
+        values = list(values) + [jobid]
+
+        ex = self._cursor.execute("UPDATE `%s` SET %s WHERE id = ?" %
+                                  (self._table, set_str), values)
+        if ex.rowcount == 0:
+            fields_str = ", ".join("`%s`" % field_name for field_name in fields)
+            question_marks = ", ".join(["?"] * (len(fields) + 1))
+            self._cursor.execute("INSERT INTO `%s` (%s, id) VALUES (%s)" %
+                                 (self._table, fields_str, question_marks), values)
 
     def get_handler(self, jobid):
         return JobHandler(self, jobid)
