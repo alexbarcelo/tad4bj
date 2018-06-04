@@ -3,6 +3,8 @@ from __future__ import print_function
 import argparse
 import os
 
+import sys
+
 from . import schedulers
 from .dbconn import DataStorage, DataSchema
 
@@ -32,6 +34,10 @@ def get(args):
 def set(args):
     job_id = _sanitize_job_id(args)
     args.data_storage.set_value(job_id, args.field, args.value)
+
+
+def setdict(args):
+    pass
 
 
 def main():
@@ -79,6 +85,17 @@ def main():
                             help='Name of the field that will be set')
     parser_set.add_argument('value', action='store',
                             help='Value that will be assigned to the field')
+
+    parser_setdict = subparsers.add_parser('setdict')
+    parser_setdict.set_defaults(func=setdict)
+    parser_setdict.add_argument('--jobid', '-j', action='store',
+                                help='Job identifier that will be used as row id. '
+                                     'If not present, tad4bj will try to autodetect'
+                                     'it from the jobid of the scheduler')
+    parser_setdict.add_argument('--dialect', '-d', choices=['yaml', 'json', 'pickle'],
+                                help='Serialization format of the dictionary (value) used')
+    parser_setdict.add_argument('value', action='store',
+                                help='Dictionary that will be used to assign values to fields')
 
     args = parser.parse_args()
 
