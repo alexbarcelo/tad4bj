@@ -3,6 +3,14 @@
     ["id", "integer"],
     ["start", "date"],
     ["description", "text"],
-    ["flag", "integer"]
-  ]
+    ["flag", "integer"],
+    ["pickled_item", "blob"],
+    ["json_item", "blob"],
+    ["yaml_item", "blob"]
+  ],
+  "metadata": {
+    "pickled_item": "pickle",
+    "json_item": "json",
+    "yaml_item": "yaml"
+  }
 }
