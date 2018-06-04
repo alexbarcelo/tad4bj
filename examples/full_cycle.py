@@ -8,7 +8,7 @@ if __name__ == "__main__":
     ds = DataSchema.load_from_file("./simple_schema.json")
     data = DataStorage("./test.db", "main_test")
 
-    data.clear(remove_metadata=True)
+    data.clear(remove_tables=True)
     data.prepare(ds)
 
     jobid = os.getpid()
