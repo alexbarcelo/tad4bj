@@ -92,21 +92,23 @@ def main():
                               help='Remove content and tables --requires `init` '
                                    'before the table can be used again')
 
+    jobid_args = ('--jobid', '-j')
+    jobid_kwargs = {
+        'action': 'store',
+        'help': 'Job identifier that will be used as row id. '
+                'If not present, tad4bj will try to autodetect'
+                'it from the jobid of the scheduler'
+    }
+
     parser_get = subparsers.add_parser('get')
     parser_get.set_defaults(func=get)
-    parser_get.add_argument('--jobid', '-j', action='store',
-                            help='Job identifier that will be used as row id. '
-                                 'If not present, tad4bj will try to autodetect'
-                                 'it from the jobid of the scheduler')
+    parser_get.add_argument(*jobid_args, **jobid_kwargs)
     parser_get.add_argument('field', action='store',
                             help='Name of the field that will be retrieved')
 
     parser_set = subparsers.add_parser('set')
     parser_set.set_defaults(func=set)
-    parser_set.add_argument('--jobid', '-j', action='store',
-                            help='Job identifier that will be used as row id. '
-                                 'If not present, tad4bj will try to autodetect'
-                                 'it from the jobid of the scheduler')
+    parser_set.add_argument(*jobid_args, **jobid_kwargs)
     parser_set.add_argument('field', action='store',
                             help='Name of the field that will be set')
     parser_set.add_argument('value', action='store',
@@ -114,10 +116,7 @@ def main():
 
     parser_setdict = subparsers.add_parser('setdict')
     parser_setdict.set_defaults(func=setdict)
-    parser_setdict.add_argument('--jobid', '-j', action='store',
-                                help='Job identifier that will be used as row id. '
-                                     'If not present, tad4bj will try to autodetect'
-                                     'it from the jobid of the scheduler')
+    parser_setdict.add_argument(*jobid_args, **jobid_kwargs)
     parser_setdict.add_argument('--dialect', '-d', choices=['yaml', 'json'],
                                 default='json',
                                 help='Serialization format of the dictionary (value) used. '
