@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime
 
 try:
     import yaml
@@ -44,6 +45,11 @@ def set(args):
     else:
         value = args.value
     args.data_storage.set_value(job_id, args.field, value)
+
+
+def setnow(args):
+    job_id = _sanitize_job_id(args)
+    args.data_storage.set_value(job_id, args.field, datetime.now())
 
 
 def setdict(args):
@@ -123,6 +129,12 @@ def main():
                                      'By default will expect JSON-formatted dictionary')
     parser_setdict.add_argument('value', action='store',
                                 help='Dictionary that will be used to assign values to fields')
+
+    parser_setnow = subparsers.add_parser('setnow')
+    parser_setnow.set_defaults(func=setnow)
+    parser_setnow.add_argument(*jobid_args, **jobid_kwargs)
+    parser_setnow.add_argument('field', action='store',
+                               help='Name of the (date-)field that will be set to "now"')
 
     args = parser.parse_args()
 
