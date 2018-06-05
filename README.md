@@ -49,6 +49,21 @@ $ tad4bj --table <mytablename> setdict --jobid 123 '{"description": "this also w
 $ tad4bj --table <mytablename> setdict --jobid 124 --dialect yaml - < a_dict.yaml
 ```
 
+#### What happens with `--table` and `--jobid`
+
+The previous examples have explicit table name and job identifier. By default, if you are using slurm or pbs, those parameters are not needed:
+
+ - The job name will be used as table name
+ - The job identifier will be used as row identifier --aka `--jobid`
+
+Those values from the scheduler are taken from their default environment variables. You can change the behaviour simply by keep using explicit `--table` and `--jobid` flags. Remember while creating the table (`tad4bj init`) to match the job name that you are using --or the other way around, use the same job name to ensure that the annotations are correctly stored in the created table. Otherwise you will have SQL errors of table not exists.
+
+By using the job scheduler autodetection, using `tad4bj` from inside submitted jobs is easy:
+
+```
+tad4bj set description "Submitted jobs are easy to annotate"
+```
+
 ### Using python bindings
 
 Assuming that you are using either slurm or pbs and the python code is being executed inside a submitted job, then it's easy! Just use it like this:
@@ -67,6 +82,8 @@ tadh["pickled_item"] = elements
 
 elements.append(4)  # note that pickled_item column will be (eventually) updated!
 
+tadh["pickled_item"].append(5)  # another way of updating information
+
 # and you can also get data
 descr = tadh["description"]
 ```
@@ -75,22 +92,7 @@ Some relevant notes regarding the python bindings:
 
  - The import is working because `PYTHONPATH` is updated in your `.bashrc` (see [Installation](#installation)).
  - The job id and the table name are working because `tad4bj.slurm` gets them from the environment. If you are using pbs, just use `tad4bj.pbs`. If you are using another job scheduler, pull requests are welcome. You can prepare the handler manually, look the documentation for more details.
- - Mutable types have certain quirks, see [Mutable types](#mutable-types) for some additional notes.
-
-### What happens with `--table` and `--jobid`
-
-The previous examples have explicit table name and job identifier. By default, if you are using slurm or pbs, those parameters are not needed:
-
- - The job name will be used as table name
- - The job identifier will be used as row identifier --aka `--jobid`
-
-Those values from the scheduler are taken from their default environment variables. You can change the behaviour simply by keep using explicit `--table` and `--jobid` flags. Remember while creating the table (`tad4bj init`) to match the job name that you are using --or the other way around, use the same job name to ensure that the annotations are correctly stored in the created table. Otherwise you will have SQL errors of table not exists.
-
-By using the job scheduler autodetection, using `tad4bj` from inside submitted jobs is easy:
-
-```
-tad4bj set description "Submitted jobs are easy to annotate"
-```
+ - Mutable types are useful but have certain quirks, see [Mutable types](#mutable-types) for some additional notes.
 
 ## Schema
 
