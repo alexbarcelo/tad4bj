@@ -85,7 +85,6 @@ class JobHandler(object):
             values.append(t.to_db(field_value))
 
         self._data.set_values(self._id, fields, values)
-        self._inmemory_objects.clear()
         self._data._conn.commit()
 
     def __del__(self):
