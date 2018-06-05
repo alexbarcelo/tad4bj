@@ -9,7 +9,7 @@ So was I. So I decided to start this small project. This project is suited for y
  - ... the data of interest can easily be displayed in a tabular fashion
  - ... don't want to track the data yourself by going into the log files generated in the application
 
-**You don't need to install any additional dependency or package**. You will only need the system python interpreter (either Python 2.7 or 3.x will work). YAML is supported if you desire to use it, but it is entirely optional. The main design decision is to be cluster-friendly, and those environments can be very restricted but Python 2.7 can typically be found by default. Hopefully, `tad4bj` will keep working regardless of being inside a virtual environment or changing versions.
+**You don't need to install any additional dependency or package**. You will only need the system python interpreter (either Python 2.7 or 3.x will work). YAML is supported if you desire to use it, but it is entirely optional. The main design decision is to be cluster-friendly, and those environments can be very restricted, but I have always found Python 2.7 in them by default. Hopefully, `tad4bj` will keep working regardless of being inside a virtual environment or changing versions.
 
 The application `tad4bj` can be used both through the native python bindings or through the shell. There are extra features if you use it through its bindings --e.g. arbitrary pickled structures and mutable types.
 
@@ -31,7 +31,7 @@ Command line help is more or less useful:
 
 `tad4bj -h`
 
-First of all you will need a schema for your table. Look into the examples folder or go to [schema] for more detailed documentation. Then you can prepare the database with:
+First of all you will need a schema for your table. Look into the examples folder or go to [Schema](#schema) for more detailed documentation. Then you can prepare the database with:
 
 `tad4bj --table <mytablename> init <schemafile.json>`
 
@@ -72,8 +72,8 @@ descr = tadh["description"]
 
 Some relevant notes regarding the python bindings:
 
- - The import is working because `PYTHONPATH` is updated in your `.bashrc` (see [Installation])
- - Mutable types have certain quirks, see [Mutable types] for some additional notes
+ - The import is working because `PYTHONPATH` is updated in your `.bashrc` (see [Installation](#installation))
+ - Mutable types have certain quirks, see [Mutable types](#mutable-types) for some additional notes
 
 ### What happens with `--table` and `--jobid`
 
