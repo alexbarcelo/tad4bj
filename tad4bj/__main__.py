@@ -1,9 +1,14 @@
 from __future__ import print_function
 
 import argparse
+import json
 import os
-
 import sys
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 from . import schedulers
 from .dbconn import DataStorage, DataSchema
@@ -42,7 +47,23 @@ def set(args):
 
 
 def setdict(args):
-    pass
+    job_id = _sanitize_job_id(args)
+
+    if args.dialect == 'json':
+        if args.value == '-':
+            d = json.load(sys.stdin)
+        else:
+            d = json.loads(args.value)
+    elif args.dialect == 'yaml':
+        if yaml is None:
+            raise ImportError("No YAML library available, cannot parse YAML documents")
+
+        d = yaml.load(args.value if args.value != '-' else sys.stdin)
+    else:
+        raise ValueError("Unrecognized dialect `%s`, aborting" % args.dialect)
+
+    fields, values = zip(*(d.items()))
+    args.data_storage.set_values(job_id, fields, values)
 
 
 def main():
@@ -97,8 +118,10 @@ def main():
                                 help='Job identifier that will be used as row id. '
                                      'If not present, tad4bj will try to autodetect'
                                      'it from the jobid of the scheduler')
-    parser_setdict.add_argument('--dialect', '-d', choices=['yaml', 'json', 'pickle'],
-                                help='Serialization format of the dictionary (value) used')
+    parser_setdict.add_argument('--dialect', '-d', choices=['yaml', 'json'],
+                                default='json',
+                                help='Serialization format of the dictionary (value) used. '
+                                     'By default will expect JSON-formatted dictionary')
     parser_setdict.add_argument('value', action='store',
                                 help='Dictionary that will be used to assign values to fields')
 
