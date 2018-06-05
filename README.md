@@ -72,8 +72,9 @@ descr = tadh["description"]
 
 Some relevant notes regarding the python bindings:
 
- - The import is working because `PYTHONPATH` is updated in your `.bashrc` (see [Installation](#installation))
- - Mutable types have certain quirks, see [Mutable types](#mutable-types) for some additional notes
+ - The import is working because `PYTHONPATH` is updated in your `.bashrc` (see [Installation](#installation)).
+ - The job id and the table name are working because `tad4bj.slurm` gets them from the environment. If you are using pbs, just use `tad4bj.pbs`. If you are using another job scheduler, pull requests are welcome. You can prepare the handler manually, look the documentation for more details.
+ - Mutable types have certain quirks, see [Mutable types](#mutable-types) for some additional notes.
 
 ### What happens with `--table` and `--jobid`
 
