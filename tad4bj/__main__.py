@@ -55,18 +55,26 @@ def setnow(args):
 def setdict(args):
     job_id = _sanitize_job_id(args)
 
+    if args.file == '-':
+        fp = sys.stdin
+        if args.dialect is None:
+            args.dialect = 'json'
+    else:
+        fp = open(args.file, 'rb')
+        if args.dialect is None:
+            if args.file.endswith(".json"):
+                args.dialect = 'json'
+            elif args.file.endswith(".yaml"):
+                args.dialect = 'pickle'
+            else:
+                args.dialect = 'json'
+
     if args.dialect == 'json':
-        if args.value == '-':
-            d = json.load(sys.stdin)
-        else:
-            d = json.loads(args.value)
+        d = json.load(fp)
     elif args.dialect == 'yaml':
         if yaml is None:
             raise ImportError("No YAML library available, cannot parse YAML documents")
-
-        d = yaml.load(args.value if args.value != '-' else sys.stdin)
-    else:
-        raise ValueError("Unrecognized dialect `%s`, aborting" % args.dialect)
+        d = yaml.load(fp)
 
     fields, values = zip(*(d.items()))
     args.data_storage.set_values(job_id, fields, values)
@@ -124,11 +132,10 @@ def main():
     parser_setdict.set_defaults(func=setdict)
     parser_setdict.add_argument(*jobid_args, **jobid_kwargs)
     parser_setdict.add_argument('--dialect', '-d', choices=['yaml', 'json'],
-                                default='json',
-                                help='Serialization format of the dictionary (value) used. '
-                                     'By default will expect JSON-formatted dictionary')
-    parser_setdict.add_argument('value', action='store',
-                                help='Dictionary that will be used to assign values to fields')
+                                help='Serialization format of the dictionary used')
+    parser_setdict.add_argument('file', action='store',
+                                help='Path containing a file with a dictionary that will '
+                                     'be used to assign values to fields')
 
     parser_setnow = subparsers.add_parser('setnow')
     parser_setnow.set_defaults(func=setnow)

@@ -45,8 +45,8 @@ $ tad4bj --table <mytablename> get --jobid 123 description
 Hey look this is a string description of this
 $ tad4bj --table <mytablename> setnow --jobid 124 start
 $ tad4bj --table <mytablename> set --jobid 124 description "Another execution, another description"
-$ tad4bj --table <mytablename> setdict --jobid 123 '{"description": "this also works", "flag": 42}'
-$ tad4bj --table <mytablename> setdict --jobid 124 --dialect yaml - < a_dict.yaml
+$ tad4bj --table <mytablename> setdict --jobid 123 filename.json'
+$ command_generating_yaml | tad4bj --table <mytablename> setdict --jobid 124 --dialect yaml -
 ```
 
 #### What happens with `--table` and `--jobid`
