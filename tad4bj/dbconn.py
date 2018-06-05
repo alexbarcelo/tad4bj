@@ -110,7 +110,10 @@ class DataStorage(object):
         :param schema:
         :param kwargs:
         """
-        self._conn = sqlite3.connect(path)
+        self._conn = sqlite3.connect(
+            path,
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
+        )
         self._cursor = self._conn.cursor()
         self._table = table_name
         self._metadata = None
