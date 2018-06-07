@@ -120,8 +120,10 @@ class DataStorage(object):
         self._field_transformers = dict()
 
     def close(self):
-        self._conn.commit()
-        self._conn.close()
+        if self._conn:
+            self._conn.commit()
+            self._conn.close()
+            self._conn = None
 
     def __del__(self):
         self.close()
