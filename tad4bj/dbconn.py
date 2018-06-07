@@ -74,7 +74,12 @@ class JobHandler(object):
         self._inmemory_objects[key] = value
 
     def __contains__(self, item):
-        return self._data.get_value(self._id, item) is not None
+        try:
+            value = self._inmemory_objects[item]
+            return value is not None
+        except KeyError:
+            # No need to transform, just check if it is set
+            return self._data.get_value(self._id, item) is not None
 
     def commit(self):
         fields = []
