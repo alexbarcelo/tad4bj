@@ -53,6 +53,9 @@ class JobHandler(object):
         self._inmemory_objects = dict()
 
     def __getitem__(self, item):
+        if not isinstance(item, Text):
+            raise ValueError("Field names must be strings")
+
         try:
             return self._inmemory_objects[item]
         except KeyError:
@@ -67,6 +70,8 @@ class JobHandler(object):
         return data
 
     def __setitem__(self, key, value):
+        if not isinstance(key, Text):
+            raise ValueError("Field names must be strings")
         tf = self._data.get_field_transformer(key)
         raw_data = tf.to_db(value)
 
@@ -74,6 +79,9 @@ class JobHandler(object):
         self._inmemory_objects[key] = value
 
     def __contains__(self, item):
+        if not isinstance(item, Text):
+            raise ValueError("Field names must be strings")
+
         try:
             value = self._inmemory_objects[item]
             return value is not None
@@ -82,6 +90,9 @@ class JobHandler(object):
             return self._data.get_value(self._id, item) is not None
 
     def get(self, item, default=None):
+        if not isinstance(item, Text):
+            raise ValueError("Field names must be strings")
+
         # Starts just like __getitem__
         try:
             return self._inmemory_objects[item]
