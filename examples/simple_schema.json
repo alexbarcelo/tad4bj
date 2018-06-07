@@ -1,7 +1,7 @@
 {
   "fields": [
     ["id", "integer"],
-    ["start", "date"],
+    ["start", "timestamp"],
     ["description", "text"],
     ["flag", "integer"],
     ["pickled_item", "blob"],
