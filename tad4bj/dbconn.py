@@ -1,22 +1,14 @@
+import os
+from collections import Mapping, namedtuple
 import sqlite3
 import json
-
-try:
-    from numbers import Number
-except ImportError:
-    Number = (int, long, float, complex)
 
 try:
     import yaml
 except ImportError:
     yaml = None
 
-try:
-    Text = basestring
-except NameError:
-    Text = (str, bytes)
-
-from . import transformers
+from . import transformers, handlers
 
 
 class DataSchema(object):
@@ -43,95 +35,7 @@ class DataSchema(object):
         return cls(dict_data)
 
 
-class JobHandler(object):
-    """
-
-    """
-    def __init__(self, datastorage, jobid):
-        self._id = jobid
-        self._data = datastorage
-        self._inmemory_objects = dict()
-
-    def __getitem__(self, item):
-        if not isinstance(item, Text):
-            raise ValueError("Field names must be strings")
-
-        try:
-            return self._inmemory_objects[item]
-        except KeyError:
-            pass
-
-        raw_data = self._data.get_value(self._id, item)
-        if raw_data is None:
-            raise KeyError("Field %s is NULL" % item)
-
-        data = self._data.get_field_transformer(item).from_db(raw_data)
-        self._inmemory_objects[item] = data
-        return data
-
-    def __setitem__(self, key, value):
-        if not isinstance(key, Text):
-            raise ValueError("Field names must be strings")
-        tf = self._data.get_field_transformer(key)
-        raw_data = tf.to_db(value)
-
-        self._data.set_value(self._id, key, raw_data)
-        self._inmemory_objects[key] = value
-
-    def __contains__(self, item):
-        if not isinstance(item, Text):
-            raise ValueError("Field names must be strings")
-
-        try:
-            value = self._inmemory_objects[item]
-            return value is not None
-        except KeyError:
-            # No need to transform, just check if it is set
-            return self._data.get_value(self._id, item) is not None
-
-    def get(self, item, default=None):
-        if not isinstance(item, Text):
-            raise ValueError("Field names must be strings")
-
-        # Starts just like __getitem__
-        try:
-            return self._inmemory_objects[item]
-        except KeyError:
-            pass
-
-        raw_data = self._data.get_value(self._id, item)
-
-        if raw_data is not None:
-            ret = self._data.get_field_transformer(item).from_db(raw_data)
-        else:
-            # provided default needs not to be transformed
-            ret = default
-
-        return ret
-
-    def setdefault(self, item, default=None):
-        # does a get, and stores it **if** we are not receiving None
-        ret = self.get(item, default)
-        if ret is not None:
-            self._inmemory_objects[item] = ret
-        return ret
-
-    def commit(self):
-        fields = []
-        values = []
-        for field_name, field_value in self._inmemory_objects.items():
-            t = self._data.get_field_transformer(field_name)
-            fields.append(field_name)
-            values.append(t.to_db(field_value))
-
-        self._data.set_values(self._id, fields, values)
-        self._data._conn.commit()
-
-    def __del__(self):
-        self.commit()
-
-
-class DataStorage(object):
+class DataStorage(Mapping):
     """Abstract the management of all the application data.
 
     This class will use a SQLite file and present it with more general
@@ -142,14 +46,16 @@ class DataStorage(object):
     the user has already access to the database itself, so there's no security
     issue.
     """
-    def __init__(self, path, table_name):
-        """
+    DATABASE_DEFAULT_PATH = os.path.expanduser(os.getenv("TAD4BJ_DATABASE", "~/tad4bj.db"))
 
-        :param path:
-        :param table_name:
-        :param schema:
-        :param kwargs:
+    def __init__(self, table_name, path=None):
         """
+        :param table_name:
+        :param path:
+        """
+        if path is None:
+            path = DataStorage.DATABASE_DEFAULT_PATH
+
         self._conn = sqlite3.connect(
             path,
             detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
@@ -157,7 +63,19 @@ class DataStorage(object):
         self._cursor = self._conn.cursor()
         self._table = table_name
         self._metadata = None
+        self._rowtuple = None
         self._field_transformers = dict()
+
+    def _get_row_namedtuple(self):
+        if self._rowtuple is not None:
+            return self._rowtuple
+
+        if not self._cursor.description:
+            raise RuntimeError("Could not get row schema --empty cursor")
+
+        self._rowtuple = namedtuple("Row%s" % self._table,
+                                    (s[0] for s in self._cursor.description))
+        return self._rowtuple
 
     def close(self):
         if self._conn:
@@ -194,7 +112,7 @@ class DataStorage(object):
         self._cursor.executemany("INSERT INTO `%s_tamd` (field, type) values (?, ?)" %
                                  (self._table,), self._metadata.items())
 
-    def get_field_transformer(self, field_name):
+    def _get_field_transformer(self, field_name):
         try:
             # Fast scenario: the transformer is cached in its place
             return self._field_transformers[field_name]
@@ -220,21 +138,41 @@ class DataStorage(object):
         self._field_transformers[field_name] = tf
         return tf
 
-    def get_value(self, jobid, field):
+    def get_value(self, jobid, field, raw_return=False):
         self._cursor.execute("SELECT `%s` FROM `%s` WHERE id=?" %
                              (field, self._table), (jobid,))
-        return self._cursor.fetchone()[0]
+        ret = self._cursor.fetchone()[0]
 
-    def set_value(self, jobid, field, value):
+        if raw_return or ret is None:
+            return ret
+
+        # Transform the value before returning it
+        return self._get_field_transformer(field).from_db(ret)
+
+    def set_value(self, jobid, field, parameter, raw_parameter=False):
+        if raw_parameter:
+            value = parameter
+        else:
+            value = self._get_field_transformer(field).to_db(parameter)
+
         ex = self._cursor.execute("UPDATE `%s` SET `%s` = ? WHERE id = ?" %
                                   (self._table, field), (value, jobid))
         if ex.rowcount == 0:
             self._cursor.execute("INSERT INTO `%s` (id, `%s`) VALUES (?, ?)" %
                                  (self._table, field), (jobid, value))
 
-    def set_values(self, jobid, fields, values):
+    def set_values(self, jobid, fields, parameters, raw_parameters=False):
         set_str = ", ".join("`%s` = ?" % field_name for field_name in fields)
-        values = list(values) + [jobid]
+
+        if raw_parameters:
+            values = list(parameters)
+        else:
+            values = list()
+
+            for field, parameter in zip(fields, parameters):
+                values.append(self._get_field_transformer(field).to_db(parameter))
+
+        values.append(jobid)
 
         ex = self._cursor.execute("UPDATE `%s` SET %s WHERE id = ?" %
                                   (self._table, set_str), values)
@@ -245,7 +183,41 @@ class DataStorage(object):
                                  (self._table, fields_str, question_marks), values)
 
     def get_handler(self, jobid):
-        return JobHandler(self, jobid)
+        return handlers.JobHandler(self, jobid)
+
+    def __iter__(self):
+        self._cursor.execute("SELECT `id` FROM %s" % (self._table,))
+        return (res[0] for res in self._cursor.fetchall())
+
+    def __contains__(self, item):
+        self._cursor.execute("SELECT COUNT(*) FROM %s WHERE id = ?" %
+                             (self._table,), (item,))
+        return self._cursor.fetchone()[0] == 1
+
+    def __getitem__(self, item):
+        self._cursor.execute("SELECT * FROM %s WHERE id = ?" %
+                             (self._table,), (item,))
+        row_raw = self._cursor.fetchone()
+
+        if row_raw is None:
+            return KeyError("No row with id=%s" % item)
+
+        row_namedtuple = self._get_row_namedtuple()
+        processed_values = list()
+        for field, value in zip(row_namedtuple._fields, row_raw):
+            if value is not None:
+                processed_values.append(
+                    self._get_field_transformer(field).from_db(value)
+                )
+            else:
+                processed_values.append(None)
+
+        return row_namedtuple(*processed_values)
+
+    def __len__(self):
+        self._cursor.execute("SELECT COUNT(*) FROM %s" %
+                             (self._table,))
+        return self._cursor.fetchone()[0]
 
 
 class DummyDataStorage(object):
@@ -263,17 +235,14 @@ class DummyDataStorage(object):
     def prepare(self, schema):
         raise NotImplementedError("Refusing to dummy-prepare a table. I am a dummy.")
 
-    def get_field_transformer(self, field_name):
-        return transformers.Identity
-
-    def get_value(self, jobid, field):
+    def get_value(self, jobid, field, raw_return=False):
         return None
 
-    def set_value(self, jobid, field, value):
+    def set_value(self, jobid, field, value, raw_parameter=False):
         pass
 
-    def set_values(self, jobid, fields, values):
+    def set_values(self, jobid, fields, values, raw_parameters=False):
         pass
 
     def get_handler(self, jobid=1):
-        return JobHandler(self, jobid)
+        return handlers.JobHandler(self, jobid)

@@ -2,9 +2,6 @@ import os
 
 from .dbconn import DataStorage, DummyDataStorage
 
-_DATABASE = os.path.expanduser(os.getenv("TAD4BJ_DATABASE", "~/tad4bj.db"))
-
-
 class Slurm:
     JOB_ID = "SLURM_JOB_ID"
     TABLE_NAME = "SLURM_JOB_NAME"
@@ -20,7 +17,6 @@ known_schedulers = [Slurm, Pbs]
 
 def prepare_handler(scheduler_environ_vars):
     return DataStorage(
-        _DATABASE,
         os.environ[scheduler_environ_vars.TABLE_NAME]
     ).get_handler(int(os.environ[scheduler_environ_vars.JOB_ID]))
 

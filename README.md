@@ -93,6 +93,30 @@ Some relevant notes regarding the python bindings:
  - The import is working because `PYTHONPATH` is updated in your `.bashrc` (see [Installation](#installation)).
  - The job id and the table name are working because `tad4bj.slurm` gets them from the environment. If you are using pbs, just use `tad4bj.pbs`. If you are using another job scheduler, pull requests are welcome. You can prepare the handler manually, look the documentation for more details.
  - Mutable types are useful but have certain quirks, see [Mutable types](#mutable-types) for some additional notes.
+ 
+## Processing the tabular data
+
+Now you have all your execution information. How to process it? Well, it's a SQLite database so feel free to use whatever exporters and tools you are used to.
+
+But if you are used to Python --maybe with Jupyter, maybe with other tools, maybe you want to add a custom CSV exporter-- then you can take advantage of the `Mapping` interface of the `DataStorage` class.
+
+As an example, you could do things like:
+
+```python
+from tad4bj import DataStorage
+from datetime import datetime
+
+d = DataStorage("mytable")
+
+d.keys()  # Those are job ids
+d.values() # Job ID also appear here
+
+filter(lambda x: x.start > datetime(2018, 1, 1), d.values())
+
+d[123].description
+```
+
+This interface is meant to be a read-only friendly layer for data processing.
 
 ## Schema
 

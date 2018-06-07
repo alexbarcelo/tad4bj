@@ -33,7 +33,7 @@ def _sanitize_job_id(args):
 
 def get(args):
     job_id = _sanitize_job_id(args)
-    value = args.data_storage.get_value(job_id, args.field)
+    value = args.data_storage.get_value(job_id, args.field, raw_return=True)
     print(value)
 
 
@@ -44,7 +44,7 @@ def set(args):
         value = sys.stdin.read()
     else:
         value = args.value
-    args.data_storage.set_value(job_id, args.field, value)
+    args.data_storage.set_value(job_id, args.field, value, raw_parameter=True)
 
 
 def setnow(args):
@@ -77,7 +77,7 @@ def setdict(args):
         d = yaml.load(fp)
 
     fields, values = zip(*(d.items()))
-    args.data_storage.set_values(job_id, fields, values)
+    args.data_storage.set_values(job_id, fields, values, raw_parameters=True)
 
 
 def main():
