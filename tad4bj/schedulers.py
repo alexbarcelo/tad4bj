@@ -1,6 +1,6 @@
 import os
 
-from .dbconn import DataStorage
+from .dbconn import DataStorage, DummyDataStorage
 
 _DATABASE = os.path.expanduser(os.getenv("TAD4BJ_DATABASE", "~/tad4bj.db"))
 
@@ -23,6 +23,10 @@ def prepare_handler(scheduler_environ_vars):
         _DATABASE,
         os.environ[scheduler_environ_vars.TABLE_NAME]
     ).get_handler(int(os.environ[scheduler_environ_vars.JOB_ID]))
+
+
+def prepare_dummy_handler():
+    return DummyDataStorage().get_handler()
 
 
 def auto_detect_table_name():

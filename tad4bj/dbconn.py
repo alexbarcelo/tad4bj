@@ -246,3 +246,34 @@ class DataStorage(object):
 
     def get_handler(self, jobid):
         return JobHandler(self, jobid)
+
+
+class DummyDataStorage(object):
+    """Seems  DataStorage, but does nothing and doesn't raise expcetions (almost)."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def close(self):
+        pass
+
+    def clear(self, remove_tables=False):
+        pass
+
+    def prepare(self, schema):
+        raise NotImplementedError("Refusing to dummy-prepare a table. I am a dummy.")
+
+    def get_field_transformer(self, field_name):
+        return transformers.Identity
+
+    def get_value(self, jobid, field):
+        return None
+
+    def set_value(self, jobid, field, value):
+        pass
+
+    def set_values(self, jobid, fields, values):
+        pass
+
+    def get_handler(self, jobid=1):
+        return JobHandler(self, jobid)
