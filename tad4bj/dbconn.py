@@ -81,6 +81,30 @@ class JobHandler(object):
             # No need to transform, just check if it is set
             return self._data.get_value(self._id, item) is not None
 
+    def get(self, item, default=None):
+        # Starts just like __getitem__
+        try:
+            return self._inmemory_objects[item]
+        except KeyError:
+            pass
+
+        raw_data = self._data.get_value(self._id, item)
+
+        if raw_data is not None:
+            ret = self._data.get_field_transformer(item).from_db(raw_data)
+        else:
+            # provided default needs not to be transformed
+            ret = default
+
+        return ret
+
+    def setdefault(self, item, default=None):
+        # does a get, and stores it **if** we are not receiving None
+        ret = self.get(item, default)
+        if ret is not None:
+            self._inmemory_objects[item] = ret
+        return ret
+
     def commit(self):
         fields = []
         values = []
