@@ -83,14 +83,14 @@ def setdict(args):
 def main():
     parser = argparse.ArgumentParser("tad4bj")
     parser.add_argument('--database', '-d', action='store',
-                        default=os.path.expanduser(os.getenv(
-                            "TAD4BJ_DATABASE", "~/tad4bj.db")),
-                        help='path to database file (default: environ variable '
-                             '$TAD4BJ_DATABASE or ~/tad4bj.db')
+                        help='path to database file. Default: value of the environment '
+                             'variable $TAD4BJ_DATABASE or, if absent, file ~/tad4bj.db'
+                             ' || Current default value: %s'
+                             % DataStorage.DATABASE_DEFAULT_PATH)
     parser.add_argument('--table', '-t', action='store',
                         help='name of the table to work with. If not present, tad4bj will'
                              'try to autodetect it from the jobname of the scheduler')
-    parser.add_argument('--verbose', '-v', help='verbose output')
+    parser.add_argument('--verbose', '-v', help='verbose output', action='count')
 
     subparsers = parser.add_subparsers(help='available commands')
 
@@ -141,14 +141,14 @@ def main():
     parser_setnow.set_defaults(func=setnow)
     parser_setnow.add_argument(*jobid_args, **jobid_kwargs)
     parser_setnow.add_argument('field', action='store',
-                               help='Name of the (date-)field that will be set to "now"')
+                               help='Name of the (timestamp-)field that will be set to "now"')
 
     args = parser.parse_args()
 
     if not args.table:
         args.table = schedulers.auto_detect_table_name()
 
-    args.data_storage = DataStorage(args.database, args.table)
+    args.data_storage = DataStorage(args.table)
 
     args.func(args)
 
