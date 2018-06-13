@@ -124,9 +124,9 @@ This interface is meant to be a read-only friendly layer for data processing.
 
 ### Adding columns to the table
 
-When you start a table, maybe there will be some scenarios that were not considered and now you need more columns. A utility is included to add columns to the database, but no default values or "smart" migration system is included. If you need to tweak things, you can open the database manually, although be sure to check the documentation before attempting that.
+Typically you will initialize a table with the fields you feel you need. You will execute stuff. And after that, you will realize that you did not consider some fields that now you need to track, leaving you with an incomplete table. This has happened to everyone, and `tad4bj` includes an easy way to add columns to the database --but don't expect a "smart" migration system. If you need to fine-tune things then you can open the database manually, although you should check the documentation before attempting that.
 
-If you need to simply add new columns to the database, then update the schema file and then call the following:
+So, when you need to add new columns to the database, then you can update the schema file and use the following CLI call:
 
 ```
 tad4bj --table <mytablename> update <schemafile.json>
