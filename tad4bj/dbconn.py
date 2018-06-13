@@ -107,10 +107,37 @@ class DataStorage(Mapping):
         self._metadata = schema.metadata
         self._cursor.execute("CREATE TABLE `%s_tamd` (field text, type text)" %
                              (self._table,))
-        # Exceptionally, the creation is forcefully committed
-        self._conn.commit()
         self._cursor.executemany("INSERT INTO `%s_tamd` (field, type) values (?, ?)" %
                                  (self._table,), self._metadata.items())
+        # Exceptionally, the creation is forcefully committed
+        self._conn.commit()
+
+    def update(self, schema):
+        self._cursor.execute("SELECT * FROM `%s`" % self._table)
+        old_fields = {f[0] for f in self._cursor.description}
+        all_fields = {f for f, _ in schema.fields}
+        new_fields = all_fields - old_fields
+
+        if not new_fields:
+            return
+
+        # Add all new columns
+        map(self._cursor.execute,
+            ("ALTER TABLE `%s` ADD COLUMN '%s' %s" %
+             (self._table, field_name, field_type)
+             for field_name, field_type in schema.fields
+             if field_name in new_fields))
+
+        self._metadata = schema.metadata
+
+        # Add new elements into the metadata table
+        self._cursor.executemany("INSERT INTO `%s_tamd` (field, type) values (?, ?)" %
+                                 (self._table,),
+                                 ((k, v) for k, v in self._metadata.items()
+                                  if k in new_fields))
+
+        # Exceptionally, the alter tables are forcefully committed
+        self._conn.commit()
 
     def _get_field_transformer(self, field_name):
         try:
@@ -234,6 +261,9 @@ class DummyDataStorage(object):
 
     def prepare(self, schema):
         raise NotImplementedError("Refusing to dummy-prepare a table. I am a dummy.")
+
+    def update(self, schema):
+        pass
 
     def get_value(self, jobid, field, raw_return=False):
         return None

@@ -122,6 +122,18 @@ This interface is meant to be a read-only friendly layer for data processing.
 
 **ToDo**
 
+### Adding columns to the table
+
+When you start a table, maybe there will be some scenarios that were not considered and now you need more columns. A utility is included to add columns to the database, but no default values or "smart" migration system is included. If you need to tweak things, you can open the database manually, although be sure to check the documentation before attempting that.
+
+If you need to simply add new columns to the database, then update the schema file and then call the following:
+
+```
+tad4bj --table <mytablename> update <schemafile.json>
+```
+
+Already-existing fields will be ignored, and new fields will be added to the database. No sanity tests are done, so double check that you are not changing the wrong table. No undo mechanisms are included.
+
 ## Mutable types
 
 While using the python bindings, you can use structured fields which can contain mutable types --e.g. a JSON field with a lists. The main design decision is that the binding tracks the objects that have been assigned to (or read from) the database.

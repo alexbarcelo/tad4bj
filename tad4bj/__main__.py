@@ -20,6 +20,11 @@ def init(args):
     args.data_storage.prepare(ds)
 
 
+def update(args):
+    ds = DataSchema.load_from_file(args.schema)
+    args.data_storage.update(ds)
+
+
 def clear(args):
     args.data_storage.clear(remove_tables=args.remove_tables)
 
@@ -99,6 +104,12 @@ def main():
     parser_init.add_argument('schema', action='store',
                              help='Schema file for the table that will be initialized')
 
+    parser_init = subparsers.add_parser('update', help="Add fields to an already "
+                                                       "existing table in the database")
+    parser_init.set_defaults(func=update)
+    parser_init.add_argument('schema', action='store',
+                             help='Schema file for the table that will be initialized')
+
     parser_clear = subparsers.add_parser('clear')
     parser_clear.set_defaults(func=clear)
     parser_clear.add_argument('--remove-tables', '-r', action='store_true',
@@ -148,7 +159,7 @@ def main():
     if not args.table:
         args.table = schedulers.auto_detect_table_name()
 
-    args.data_storage = DataStorage(args.table)
+    args.data_storage = DataStorage(args.table, path=args.database)
 
     args.func(args)
 
