@@ -88,15 +88,11 @@ class DataStorage(Mapping):
 
     def clear(self, remove_tables=False):
         if remove_tables:
-            try:
-                self._cursor.execute("DROP TABLE `%s_tamd`" % self._table)
-            except sqlite3.OperationalError:
-                pass
-            try:
-                self._cursor.execute("DROP TABLE `%s`" % self._table)
-            except sqlite3.OperationalError:
-                pass
+            # Drop them if they exist
+            self._cursor.execute("DROP TABLE IF EXISTS `%s_tamd`" % self._table)
+            self._cursor.execute("DROP TABLE IF EXISTS `%s`" % self._table)
         else:
+            # Application should fail if the table does not exist, as this does:
             self._cursor.execute("DELETE FROM `%s`" % self._table)
 
     def prepare(self, schema):
