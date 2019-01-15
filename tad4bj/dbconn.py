@@ -77,7 +77,8 @@ class DataStorage(Mapping):
 
         self._conn = sqlite3.connect(
             path,
-            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+            check_same_thread=False
         )
         self._cursor = self._conn.cursor()
         self._table = table_name
