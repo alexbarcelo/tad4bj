@@ -19,6 +19,16 @@ Internally, the data is stored into a SQLite database. You can browse it yoursel
 
 Keep reading for quick examples and steps to have `tad4bj` working for you in your environment.
 
+### Installation (with `pip`)
+
+If you are fortunate enough to have `pip` --lucky you-- then you can simply:
+
+    pip install tad4bj
+
+I recommend doing that inside a Python virtual environment. This is useful for local testing, or internet enabled clusters.
+
+If you cannot use `pip`, then keep reading...
+
 ### Installation
 
  1. Download and extract the zip file into your cluster's home (or execution environment). The files will remain in the path you choose now.
