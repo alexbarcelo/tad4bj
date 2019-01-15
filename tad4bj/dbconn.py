@@ -24,7 +24,7 @@ def protect_method_mt(method):
     @wraps(method)
     def wrapper(self, *args, **kwargs):
         with self.lock:
-            return method(*args, **kwargs)
+            return method(self, *args, **kwargs)
     return wrapper
 
 
