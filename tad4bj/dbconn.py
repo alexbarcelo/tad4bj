@@ -86,6 +86,13 @@ class DataStorage(Mapping):
     def __del__(self):
         self.close()
 
+    def to_dataframe(self):
+        import pandas as pd
+
+        df = pd.read_sql_query("SELECT * FROM %s" % self._table, self._conn)
+
+        return df
+
     def clear(self, remove_tables=False):
         if remove_tables:
             # Drop them if they exist
