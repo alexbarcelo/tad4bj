@@ -21,10 +21,13 @@ Keep reading for quick examples and steps to have `tad4bj` working for you in yo
 
 ### Installation
 
- 1. Download and extract the zip file into your cluster's home (or execution environment).
+ 1. Download and extract the zip file into your cluster's home (or execution environment). The files will remain in the path you choose now.
  2. Execute the `./local_install.py ~/bin` and don't use _sudo_! If you have your user scripts elsewhere, change the path.
  3. Logout and login.
- 
+
+If you don't use `bash`, then you may want to manually add some exports to your shell rc file. If you use `bash`, the `local_install`
+script automatically updates it to make `tad4bj` work.
+
 ### Basic shell usage and examples
 
 Command line help is more or less useful:
