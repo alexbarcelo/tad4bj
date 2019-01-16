@@ -2,6 +2,8 @@ import os
 from collections import Mapping, namedtuple
 import sqlite3
 import json
+from functools import wraps
+from threading import RLock
 
 try:
     import yaml
@@ -9,6 +11,21 @@ except ImportError:
     yaml = None
 
 from . import transformers, handlers
+
+
+def protect_method_mt(method):
+    """Decorator to protect a method for multithreading behaviour.
+
+    :param method: A method of DataStorage class
+
+    This can only be asumed in methods of classes that have a self.lock
+    multithreading Lock instance.
+    """
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self.lock:
+            return method(self, *args, **kwargs)
+    return wrapper
 
 
 class DataSchema(object):
@@ -56,9 +73,12 @@ class DataStorage(Mapping):
         if path is None:
             path = DataStorage.DATABASE_DEFAULT_PATH
 
+        self.lock = RLock()
+
         self._conn = sqlite3.connect(
             path,
-            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
+            detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+            check_same_thread=False
         )
         self._cursor = self._conn.cursor()
         self._table = table_name
@@ -77,6 +97,7 @@ class DataStorage(Mapping):
                                     (s[0] for s in self._cursor.description))
         return self._rowtuple
 
+    @protect_method_mt
     def close(self):
         if self._conn:
             self._conn.commit()
@@ -86,6 +107,7 @@ class DataStorage(Mapping):
     def __del__(self):
         self.close()
 
+    @protect_method_mt
     def to_dataframe(self):
         import pandas as pd
 
@@ -93,6 +115,7 @@ class DataStorage(Mapping):
 
         return df
 
+    @protect_method_mt
     def clear(self, remove_tables=False):
         if remove_tables:
             # Drop them if they exist
@@ -102,6 +125,7 @@ class DataStorage(Mapping):
             # Application should fail if the table does not exist, as this does:
             self._cursor.execute("DELETE FROM `%s`" % self._table)
 
+    @protect_method_mt
     def prepare(self, schema):
         creation_fields = ", ".join("'%s' %s" % (field_name, field_type)
                                     for field_name, field_type in schema.fields)
@@ -115,6 +139,7 @@ class DataStorage(Mapping):
         # Exceptionally, the creation is forcefully committed
         self._conn.commit()
 
+    @protect_method_mt
     def update(self, schema):
         self._cursor.execute("SELECT * FROM `%s`" % self._table)
         old_fields = {f[0] for f in self._cursor.description}
@@ -142,6 +167,7 @@ class DataStorage(Mapping):
         # Exceptionally, the alter tables are forcefully committed
         self._conn.commit()
 
+    @protect_method_mt
     def _get_field_transformer(self, field_name):
         try:
             # Fast scenario: the transformer is cached in its place
@@ -168,6 +194,7 @@ class DataStorage(Mapping):
         self._field_transformers[field_name] = tf
         return tf
 
+    @protect_method_mt
     def get_value(self, jobid, field, raw_return=False):
         self._cursor.execute("SELECT `%s` FROM `%s` WHERE id=?" %
                              (field, self._table), (jobid,))
@@ -179,6 +206,7 @@ class DataStorage(Mapping):
         # Transform the value before returning it
         return self._get_field_transformer(field).from_db(ret)
 
+    @protect_method_mt
     def set_value(self, jobid, field, parameter, raw_parameter=False):
         if raw_parameter:
             value = parameter
@@ -191,6 +219,7 @@ class DataStorage(Mapping):
             self._cursor.execute("INSERT INTO `%s` (id, `%s`) VALUES (?, ?)" %
                                  (self._table, field), (jobid, value))
 
+    @protect_method_mt
     def set_values(self, jobid, fields, parameters, raw_parameters=False):
         set_str = ", ".join("`%s` = ?" % field_name for field_name in fields)
 
@@ -215,15 +244,18 @@ class DataStorage(Mapping):
     def get_handler(self, jobid):
         return handlers.JobHandler(self, jobid)
 
+    @protect_method_mt
     def __iter__(self):
         self._cursor.execute("SELECT `id` FROM %s" % (self._table,))
         return (res[0] for res in self._cursor.fetchall())
 
+    @protect_method_mt
     def __contains__(self, item):
         self._cursor.execute("SELECT COUNT(*) FROM %s WHERE id = ?" %
                              (self._table,), (item,))
         return self._cursor.fetchone()[0] == 1
 
+    @protect_method_mt
     def __getitem__(self, item):
         self._cursor.execute("SELECT * FROM %s WHERE id = ?" %
                              (self._table,), (item,))
@@ -244,6 +276,7 @@ class DataStorage(Mapping):
 
         return row_namedtuple(*processed_values)
 
+    @protect_method_mt
     def __len__(self):
         self._cursor.execute("SELECT COUNT(*) FROM %s" %
                              (self._table,))
