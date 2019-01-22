@@ -23,7 +23,7 @@ class Identity(object):
 class JsonTransformer(object):
     @staticmethod
     def from_db(data):
-        return json.loads(bytes(data))
+        return json.loads(data)
 
     @staticmethod
     def to_db(data):
@@ -35,7 +35,7 @@ class YamlTransformer(object):
     def from_db(data):
         if yaml is None:
             raise ImportError("No YAML library available, YAML is unsupported")
-        return yaml.load(bytes(data))
+        return yaml.load(data)
 
     @staticmethod
     def to_db(data):
@@ -47,7 +47,7 @@ class YamlTransformer(object):
 class PickleTransformer(object):
     @staticmethod
     def from_db(data):
-        return pickle.loads(bytes(data))
+        return pickle.loads(data)
 
     @staticmethod
     def to_db(data):
