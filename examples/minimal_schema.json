@@ -2,7 +2,5 @@
   "fields": [
     ["id", "integer"],
     ["start", "timestamp"]
-  ],
-  "metadata": {
-  }
+  ]
 }

@@ -4,13 +4,8 @@
     ["start", "timestamp"],
     ["description", "text"],
     ["flag", "integer"],
-    ["pickled_item", "blob"],
-    ["json_item", "blob"],
-    ["yaml_item", "blob"]
-  ],
-  "metadata": {
-    "pickled_item": "pickle",
-    "json_item": "json",
-    "yaml_item": "yaml"
-  }
+    ["pickled_item", "pickle"],
+    ["json_item", "json"],
+    ["yaml_item", "yaml"]
+  ]
 }

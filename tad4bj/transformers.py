@@ -1,3 +1,4 @@
+import sqlite3
 import json
 try:
     import cPickle as pickle
@@ -10,45 +11,46 @@ except ImportError:
     yaml = None
 
 
-class Identity(object):
-    @staticmethod
-    def from_db(data):
-        return data
-
-    @staticmethod
-    def to_db(data):
-        return data
+def convert_yaml(s):
+    if yaml is None:
+        raise ImportError("No YAML library available, YAML is unsupported")
+    return yaml.load(s)
 
 
-class JsonTransformer(object):
-    @staticmethod
-    def from_db(data):
-        return json.loads(data)
-
-    @staticmethod
-    def to_db(data):
-        return json.dumps(data)
+def yaml_adapter(obj):
+    if yaml is None:
+        raise ImportError("No YAML library available, YAML is unsupported")
+    return yaml.dump(obj)
 
 
-class YamlTransformer(object):
-    @staticmethod
-    def from_db(data):
-        if yaml is None:
-            raise ImportError("No YAML library available, YAML is unsupported")
-        return yaml.load(data)
-
-    @staticmethod
-    def to_db(data):
-        if yaml is None:
-            raise ImportError("No YAML library available, YAML is unsupported")
-        return yaml.dump(data)
+def convert_json(s):
+    return json.load(s)
 
 
-class PickleTransformer(object):
-    @staticmethod
-    def from_db(data):
-        return pickle.loads(data)
+def json_adapter(obj):
+    return json.dumps(obj)
 
-    @staticmethod
-    def to_db(data):
-        return pickle.dumps(data)
+
+def convert_pickle(s):
+    return pickle.loads(s)
+
+
+def pickle_adapter(obj):
+    return pickle.dumps(obj)
+
+
+def identity_adapter(obj):
+    return obj
+
+
+def register_converters():
+    sqlite3.register_converter("yaml", convert_yaml)
+    sqlite3.register_converter("json", convert_json)
+    sqlite3.register_converter("pickle", convert_pickle)
+
+
+DECLTYPE_ADAPTERS = {
+    "yaml": yaml_adapter,
+    "json": json_adapter,
+    "pickle": pickle_adapter,
+}

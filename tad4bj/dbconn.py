@@ -28,6 +28,21 @@ def protect_method_mt(method):
     return wrapper
 
 
+def autocommit(method):
+    """Decorator to apply policies of commit on the database.
+
+    This will check the state of the self object in order to decide if a
+    commit (when the function ends) should be done.
+    """
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        ret = method(self, *args, **kwargs)
+        if self._always_commit:
+            self._conn.commit()
+        return ret
+    return wrapper
+
+
 class DataSchema(object):
     def __init__(self, dict):
         # ToDo: some error and sanity checking
@@ -75,6 +90,7 @@ class DataStorage(Mapping):
 
         self.lock = RLock()
 
+        transformers.register_converters()
         self._conn = sqlite3.connect(
             path,
             detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
@@ -84,7 +100,8 @@ class DataStorage(Mapping):
         self._table = table_name
         self._metadata = None
         self._rowtuple = None
-        self._field_transformers = dict()
+        self._field_adapters = dict()
+        self._always_commit = True
 
     def _get_row_namedtuple(self):
         if self._rowtuple is not None:
@@ -116,6 +133,7 @@ class DataStorage(Mapping):
         return df
 
     @protect_method_mt
+    @autocommit
     def clear(self, remove_tables=False):
         if remove_tables:
             # Drop them if they exist
@@ -126,20 +144,16 @@ class DataStorage(Mapping):
             self._cursor.execute("DELETE FROM `%s`" % self._table)
 
     @protect_method_mt
+    @autocommit
     def prepare(self, schema):
         creation_fields = ", ".join("'%s' %s" % (field_name, field_type)
                                     for field_name, field_type in schema.fields)
         self._cursor.execute("CREATE TABLE `%s` (%s)" %
                              (self._table, creation_fields))
-        self._metadata = schema.metadata
-        self._cursor.execute("CREATE TABLE `%s_tamd` (field text, type text)" %
-                             (self._table,))
-        self._cursor.executemany("INSERT INTO `%s_tamd` (field, type) values (?, ?)" %
-                                 (self._table,), self._metadata.items())
-        # Exceptionally, the creation is forcefully committed
-        self._conn.commit()
+        self._metadata = dict(schema.fields)
 
     @protect_method_mt
+    @autocommit
     def update(self, schema):
         self._cursor.execute("SELECT * FROM `%s`" % self._table)
         old_fields = {f[0] for f in self._cursor.description}
@@ -156,62 +170,49 @@ class DataStorage(Mapping):
              for field_name, field_type in schema.fields
              if field_name in new_fields))
 
-        self._metadata = schema.metadata
-
-        # Add new elements into the metadata table
-        self._cursor.executemany("INSERT INTO `%s_tamd` (field, type) values (?, ?)" %
-                                 (self._table,),
-                                 ((k, v) for k, v in self._metadata.items()
-                                  if k in new_fields))
-
-        # Exceptionally, the alter tables are forcefully committed
-        self._conn.commit()
+        self._metadata = dict(schema.fields)
 
     @protect_method_mt
-    def _get_field_transformer(self, field_name):
+    def _get_field_adapter(self, field_name):
         try:
             # Fast scenario: the transformer is cached in its place
-            return self._field_transformers[field_name]
+            return self._field_adapters[field_name]
         except KeyError:
             pass
         if self._metadata is None:
-            self._cursor.execute("SELECT * FROM `%s_tamd`" % (self._table,))
+            self._cursor.execute("PRAGMA table_info(`%s`)" % (self._table,))
             result = self._cursor.fetchall()
-            self._metadata = {k: v for k, v in result}
+            self._metadata = {elem[1]: elem[3] for elem in result}
 
         field_type = self._metadata.get(field_name)
-        if field_type is None:
-            tf = transformers.Identity
-        elif field_type == "pickle":
-            tf = transformers.PickleTransformer
-        elif field_type == "json":
-            tf = transformers.JsonTransformer
-        elif field_type == "yaml":
-            tf = transformers.YamlTransformer
-        else:
-            raise ValueError("Unknown field_type for TAD4BJ: %s" % field_type)
 
-        self._field_transformers[field_name] = tf
+        try:
+            tf = transformers.DECLTYPE_ADAPTERS[field_type]
+        except KeyError:
+            # Fallback is don't transform it at DataStorage level
+            # (adapter machinery may be in place, e.g. the timestamp things)
+            tf = transformers.identity_adapter
+
+        self._field_adapters[field_name] = tf
         return tf
 
     @protect_method_mt
     def get_value(self, jobid, field, raw_return=False):
-        self._cursor.execute("SELECT `%s` FROM `%s` WHERE id=?" %
-                             (field, self._table), (jobid,))
-        ret = self._cursor.fetchone()[0]
-
-        if raw_return or ret is None:
-            return ret
-
-        # Transform the value before returning it
-        return self._get_field_transformer(field).from_db(ret)
+        if raw_return:
+            suffix = ' as "[text]"'
+        else:
+            suffix = ''
+        self._cursor.execute("SELECT `%s`%s FROM `%s` WHERE id=?" %
+                             (field, suffix, self._table), (jobid,))
+        return self._cursor.fetchone()[0]
 
     @protect_method_mt
+    @autocommit
     def set_value(self, jobid, field, parameter, raw_parameter=False):
         if raw_parameter:
             value = parameter
         else:
-            value = self._get_field_transformer(field).to_db(parameter)
+            value = self._get_field_adapter(field)(parameter)
 
         ex = self._cursor.execute("UPDATE `%s` SET `%s` = ? WHERE id = ?" %
                                   (self._table, field), (value, jobid))
@@ -220,6 +221,7 @@ class DataStorage(Mapping):
                                  (self._table, field), (jobid, value))
 
     @protect_method_mt
+    @autocommit
     def set_values(self, jobid, fields, parameters, raw_parameters=False):
         set_str = ", ".join("`%s` = ?" % field_name for field_name in fields)
 
@@ -229,7 +231,7 @@ class DataStorage(Mapping):
             values = list()
 
             for field, parameter in zip(fields, parameters):
-                values.append(self._get_field_transformer(field).to_db(parameter))
+                values.append(self._get_field_adapter(field)(parameter))
 
         values.append(jobid)
 

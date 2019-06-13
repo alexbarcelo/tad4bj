@@ -29,3 +29,5 @@ if __name__ == "__main__":
     print(h["pickled_item"])
     print(h["json_item"])
     print(h["yaml_item"])
+
+    del h
