@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime
 
@@ -12,7 +11,7 @@ except ImportError:
     yaml = None
 
 from . import schedulers
-from .dbconn import DataStorage, DataSchema
+from .dbconn import DummyDataStorage, DataStorage, DataSchema
 
 
 def init(args):
@@ -94,8 +93,11 @@ def main():
                              % DataStorage.DATABASE_DEFAULT_PATH)
     parser.add_argument('--table', '-t', action='store',
                         help='name of the table to work with. If not present, tad4bj will'
-                             'try to autodetect it from the jobname of the scheduler')
+                             'try to autodetect it from the jobname of the scheduler and'
+                             'fallback to $TAD4BJ_TABLE variable if unsuccessful.')
     parser.add_argument('--verbose', '-v', help='verbose output', action='count')
+    parser.add_argument('--no-op', '-n', help='Simulate, don\'t do any operation',
+                        action='store_true', default=False)
 
     subparsers = parser.add_subparsers(help='available commands')
 
@@ -122,7 +124,8 @@ def main():
         'action': 'store',
         'help': 'Job identifier that will be used as row id. '
                 'If not present, tad4bj will try to autodetect'
-                'it from the jobid of the scheduler'
+                'it from the jobid of the scheduler and fallback'
+                'to $TAD4BJ_JOBID variable if unsuccessful.'
     }
 
     parser_get = subparsers.add_parser('get')
@@ -156,10 +159,13 @@ def main():
 
     args = parser.parse_args()
 
-    if not args.table:
-        args.table = schedulers.auto_detect_table_name()
+    if args.no_op:
+        args.data_storage = DummyDataStorage()
+    else:
+        if not args.table:
+            args.table = schedulers.auto_detect_table_name()
 
-    args.data_storage = DataStorage(args.table, path=args.database)
+        args.data_storage = DataStorage(args.table, path=args.database)
 
     args.func(args)
 

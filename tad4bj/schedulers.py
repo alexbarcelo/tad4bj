@@ -2,6 +2,7 @@ import os
 
 from .dbconn import DataStorage, DummyDataStorage
 
+
 class Slurm:
     JOB_ID = "SLURM_JOB_ID"
     TABLE_NAME = "SLURM_JOB_NAME"
@@ -12,7 +13,12 @@ class Pbs:
     TABLE_NAME = "PBS_JOBNAME"
 
 
-known_schedulers = [Slurm, Pbs]
+class Custom:
+    JOB_ID = "TAD4BJ_JOBID"
+    TABLE_NAME = "TAD4BJ_TABLE"
+
+
+known_schedulers = [Slurm, Pbs, Custom]
 
 
 def prepare_handler(scheduler_environ_vars):

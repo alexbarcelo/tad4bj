@@ -70,7 +70,7 @@ class DataStorage(Mapping):
         :param table_name:
         :param path:
         """
-        if path is None:
+        if not path:
             path = DataStorage.DATABASE_DEFAULT_PATH
 
         self.lock = RLock()
