@@ -6,7 +6,7 @@ from tad4bj import *
 
 if __name__ == "__main__":
     ds = DataSchema.load_from_file("./simple_schema.json")
-    data = DataStorage("./test.db", "main_test")
+    data = DataStorage("full_cycle", "./test.db")
 
     data.clear(remove_tables=True)
     data.prepare(ds)
@@ -30,4 +30,4 @@ if __name__ == "__main__":
     print(h["json_item"])
     print(h["yaml_item"])
 
-    del h
+    data.close()

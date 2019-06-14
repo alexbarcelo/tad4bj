@@ -6,7 +6,7 @@ from tad4bj import *
 
 if __name__ == "__main__":
     ds = DataSchema.load_from_file("./simple_schema.json")
-    data = DataStorage("./test.db", "main_test")
+    data = DataStorage("mutability", "./test.db")
 
     data.clear(remove_tables=True)
     data.prepare(ds)
@@ -19,13 +19,18 @@ if __name__ == "__main__":
     mutable_stuff = [6, 7, 8, 9]
     h["yaml_item"] = mutable_stuff
 
-    data = h["pickled_item"]
-    data[3][6] = "six"
-    data.append(7)
+    print(h["pickled_item"])
+    print(h["yaml_item"])
+
+    print("Starting to change things . . .")
+
+    stored = h["pickled_item"]
+    stored[3][6] = "six"
+    stored.append(7)
 
     mutable_stuff.extend([10, 11, 12, 13, 14, 15])
 
-    print(h["yaml_item"])
-    h.commit()
     print(h["pickled_item"])
     print(h["yaml_item"])
+
+    data.close()
