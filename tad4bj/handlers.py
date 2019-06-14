@@ -3,36 +3,59 @@ try:
 except NameError:
     Text = (str, bytes)
 
+NULL_FIELD = object()
+
+
+class BatchHandler(object):
+    """Simple enclosure for the batch operations ContextManager."""
+    def __init__(self, parent_jobhandler):
+        self._h = parent_jobhandler
+
+    def __enter__(self):
+        self._h._defer_write = True
+        return self._h
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Only do something if the handler and its DataStorage object
+        # are ready (i.e. not closed)
+        if self._h._closed:
+            raise ConnectionError("The handler has already been closed")
+        else:
+            self._h._defer_write = False
+            self._h.write_all()
+
 
 class JobHandler(object):
-    """
-
-    """
+    """The elemental job handler, typically reused by a single job."""
     def __init__(self, datastorage, jobid):
         self._id = jobid
         self._data = datastorage
         self._inmemory_objects = dict()
+        self.batch = BatchHandler(self)
+        self._defer_write = False
+        self._closed = False
 
     def __delitem__(self, key):
         if not isinstance(key, Text):
             raise ValueError("Field names must be strings")
-        self._data.set_value(self._id, key, None, raw_parameter=True)
+        self._inmemory_objects[key] = None
+        if not self._defer_write:
+            self._data.set_value(self._id, key, None, raw_parameter=True)
 
     def __getitem__(self, item):
         if not isinstance(item, Text):
             raise ValueError("Field names must be strings")
 
         try:
-            return self._inmemory_objects[item]
+            data = self._inmemory_objects[item]
         except KeyError:
-            pass
+            data = self._data.get_value(self._id, item)
+            self._inmemory_objects[item] = data
 
-        data = self._data.get_value(self._id, item)
-        if data is None:
+        if data is NULL_FIELD:
             raise KeyError("Field %s is NULL" % item)
-
-        self._inmemory_objects[item] = data
-        return data
+        else:
+            return data
 
     def __setitem__(self, key, value):
         if not isinstance(key, Text):
@@ -47,40 +70,42 @@ class JobHandler(object):
 
         try:
             value = self._inmemory_objects[item]
-            return value is not None
+            return value is not NULL_FIELD
         except KeyError:
             # No need to transform, just check if it is set
-            return self._data.get_value(self._id, item, raw_return=True) is not None
+            return self._data.get_value(self._id, item, raw_return=True) is not NULL_FIELD
 
     def get(self, item, default=None):
-        if not isinstance(item, Text):
-            raise ValueError("Field names must be strings")
-
-        # Starts just like __getitem__
         try:
-            return self._inmemory_objects[item]
+            return self.__getitem__(item)
         except KeyError:
-            pass
-
-        ret = self._data.get_value(self._id, item)
-
-        if ret is None:
             return default
-        else:
-            return ret
 
     def setdefault(self, item, default=None):
-        # does a get, and stores it **if** we are not receiving None
-        ret = self.get(item, default)
-        if ret is not None:
-            self._inmemory_objects[item] = ret
-        return ret
+        # does a get, and stores it **if it is not null**
+        # Note the difference between being None (a valid Python value)
+        # or being NULL (equivalent to a KeyError)
+        try:
+            return self.__getitem__(item)
+        except KeyError:
+            self._inmemory_objects[item] = default
+            if not self._defer_write:
+                self._data.set_value(self._id, item, default)
+            return default
 
-    def commit(self):
+    def write_all(self):
+        if self._closed:
+            raise ConnectionError("This handler has already been closed")
         self._data.set_values(self._id,
                               self._inmemory_objects.keys(),
                               self._inmemory_objects.values())
-        self._data._conn.commit()
+
+    def close(self):
+        if not self._closed:
+            self._defer_write = True
+            self.write_all()
+            self._closed = True
 
     def __del__(self):
-        self.commit()
+        if not self._closed:
+            self.close()

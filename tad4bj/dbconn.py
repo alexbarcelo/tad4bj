@@ -11,6 +11,7 @@ except ImportError:
     yaml = None
 
 from . import transformers, handlers
+from .handlers import NULL_FIELD
 
 
 def protect_method_mt(method):
@@ -25,21 +26,6 @@ def protect_method_mt(method):
     def wrapper(self, *args, **kwargs):
         with self.lock:
             return method(self, *args, **kwargs)
-    return wrapper
-
-
-def autocommit(method):
-    """Decorator to apply policies of commit on the database.
-
-    This will check the state of the self object in order to decide if a
-    commit (when the function ends) should be done.
-    """
-    @wraps(method)
-    def wrapper(self, *args, **kwargs):
-        ret = method(self, *args, **kwargs)
-        if self._always_commit:
-            self._conn.commit()
-        return ret
     return wrapper
 
 
@@ -103,6 +89,8 @@ class DataStorage(Mapping):
         self._field_adapters = dict()
         self._always_commit = True
 
+        self._child_handlers = list()
+
     def _get_row_namedtuple(self):
         if self._rowtuple is not None:
             return self._rowtuple
@@ -116,6 +104,9 @@ class DataStorage(Mapping):
 
     @protect_method_mt
     def close(self):
+        for h in self._child_handlers:
+            h.close()
+
         if self._conn:
             self._conn.commit()
             self._conn.close()
@@ -133,7 +124,6 @@ class DataStorage(Mapping):
         return df
 
     @protect_method_mt
-    @autocommit
     def clear(self, remove_tables=False):
         if remove_tables:
             # Drop them if they exist
@@ -142,18 +132,18 @@ class DataStorage(Mapping):
         else:
             # Application should fail if the table does not exist, as this does:
             self._cursor.execute("DELETE FROM `%s`" % self._table)
+        self._conn.commit()
 
     @protect_method_mt
-    @autocommit
     def prepare(self, schema):
         creation_fields = ", ".join("'%s' %s" % (field_name, field_type)
                                     for field_name, field_type in schema.fields)
         self._cursor.execute("CREATE TABLE `%s` (%s)" %
                              (self._table, creation_fields))
         self._metadata = dict(schema.fields)
+        self._conn.commit()
 
     @protect_method_mt
-    @autocommit
     def update(self, schema):
         self._cursor.execute("SELECT * FROM `%s`" % self._table)
         old_fields = {f[0] for f in self._cursor.description}
@@ -171,6 +161,7 @@ class DataStorage(Mapping):
              if field_name in new_fields))
 
         self._metadata = dict(schema.fields)
+        self._conn.commit()
 
     @protect_method_mt
     def _get_field_adapter(self, field_name):
@@ -204,12 +195,17 @@ class DataStorage(Mapping):
             suffix = ''
         self._cursor.execute("SELECT `%s`%s FROM `%s` WHERE id=?" %
                              (field, suffix, self._table), (jobid,))
-        return self._cursor.fetchone()[0]
+        ret = self._cursor.fetchone()[0]
+        if ret is None:
+            return NULL_FIELD
+        else:
+            return ret
 
     @protect_method_mt
-    @autocommit
     def set_value(self, jobid, field, parameter, raw_parameter=False):
-        if raw_parameter:
+        if field is NULL_FIELD:
+            value = None
+        elif raw_parameter:
             value = parameter
         else:
             value = self._get_field_adapter(field)(parameter)
@@ -219,19 +215,22 @@ class DataStorage(Mapping):
         if ex.rowcount == 0:
             self._cursor.execute("INSERT INTO `%s` (id, `%s`) VALUES (?, ?)" %
                                  (self._table, field), (jobid, value))
+        self._conn.commit()
 
     @protect_method_mt
-    @autocommit
     def set_values(self, jobid, fields, parameters, raw_parameters=False):
         set_str = ", ".join("`%s` = ?" % field_name for field_name in fields)
 
         if raw_parameters:
-            values = list(parameters)
+            values = list(param if param is not NULL_FIELD else None for param in parameters)
         else:
             values = list()
 
             for field, parameter in zip(fields, parameters):
-                values.append(self._get_field_adapter(field)(parameter))
+                if parameter is NULL_FIELD:
+                    values.append(None)
+                else:
+                    values.append(self._get_field_adapter(field)(parameter))
 
         values.append(jobid)
 
@@ -242,9 +241,12 @@ class DataStorage(Mapping):
             question_marks = ", ".join(["?"] * (len(fields) + 1))
             self._cursor.execute("INSERT INTO `%s` (%s, id) VALUES (%s)" %
                                  (self._table, fields_str, question_marks), values)
+        self._conn.commit()
 
     def get_handler(self, jobid):
-        return handlers.JobHandler(self, jobid)
+        h = handlers.JobHandler(self, jobid)
+        self._child_handlers.append(h)
+        return h
 
     @protect_method_mt
     def __iter__(self):
@@ -274,7 +276,7 @@ class DataStorage(Mapping):
                     self._get_field_transformer(field).from_db(value)
                 )
             else:
-                processed_values.append(None)
+                processed_values.append(NULL_FIELD)
 
         return row_namedtuple(*processed_values)
 
