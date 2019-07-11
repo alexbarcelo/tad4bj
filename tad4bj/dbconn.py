@@ -195,11 +195,15 @@ class DataStorage(Mapping):
             suffix = ''
         self._cursor.execute("SELECT `%s`%s FROM `%s` WHERE id=?" %
                              (field, suffix, self._table), (jobid,))
-        ret = self._cursor.fetchone()[0]
-        if ret is None:
+        record = self._cursor.fetchone()
+        if record is None:
+            # The record does not exist, default to NULL
+            return NULL_FIELD
+        value = record[0]
+        if value is None:
             return NULL_FIELD
         else:
-            return ret
+            return value
 
     @protect_method_mt
     def set_value(self, jobid, field, parameter, raw_parameter=False):
