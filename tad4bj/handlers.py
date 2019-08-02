@@ -96,9 +96,11 @@ class JobHandler(object):
     def write_all(self):
         if self._closed:
             raise ConnectionError("This handler has already been closed")
-        self._data.set_values(self._id,
-                              self._inmemory_objects.keys(),
-                              self._inmemory_objects.values())
+        # Avoid going into a set_values calls with no objects
+        if self._inmemory_objects:
+            self._data.set_values(self._id,
+                                  self._inmemory_objects.keys(),
+                                  self._inmemory_objects.values())
 
     def close(self):
         if not self._closed:
