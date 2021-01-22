@@ -153,10 +153,10 @@ While using the python bindings, you can use structured fields which can contain
 
 When the application ends (clean shutdown), all objects in memory are written. That means that if a mutable object has been assigned to the database and then modified, the updated version will be written to the database.
 
-If there is a dirty shutdown (for instance, a job scheduler time limit) the database may not be updated or even some assignments may be lost. You may want to manually call to the `commit` method in the handler to ensure that the database is updated:
+If there is a dirty shutdown (for instance, a job scheduler time limit) the database may not be updated or even some assignments may be lost. You may want to manually call to the `write_all` method in the handler to ensure that the database is updated:
 
 ```python
-tadh.commit()
+tadh.write_all()
 ```
 
-This ensures that all the mutable objects are updated and the database file is updated. It is a good idea to call this `commit` method before time-consuming or crash-prone blocks. 
+This ensures that all the mutable objects are updated and the database file is updated. It is a good idea to call this `write_all` method before time-consuming or crash-prone blocks. 
