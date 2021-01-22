@@ -171,9 +171,9 @@ class DataStorage(Mapping):
         except KeyError:
             pass
         if self._metadata is None:
-            self._cursor.execute("PRAGMA table_info(`%s`)" % (self._table,))
+            self._cursor.execute("SELECT name, type FROM pragma_table_info(\"%s\")" % (self._table,))
             result = self._cursor.fetchall()
-            self._metadata = {elem[1]: elem[3] for elem in result}
+            self._metadata = {column_name: column_type for column_name, column_type in result}
 
         field_type = self._metadata.get(field_name)
 
