@@ -119,7 +119,7 @@ class DataStorage(Mapping):
     def to_dataframe(self):
         import pandas as pd
 
-        df = pd.read_sql_query("SELECT * FROM %s" % self._table, self._conn)
+        df = pd.read_sql_query("SELECT * FROM `%s`" % self._table, self._conn)
 
         return df
 
@@ -243,7 +243,7 @@ class DataStorage(Mapping):
         if ex.rowcount == 0:
             fields_str = ", ".join("`%s`" % field_name for field_name in fields)
             question_marks = ", ".join(["?"] * (len(fields) + 1))
-            self._cursor.execute("INSERT INTO `%s` (%s, id) VALUES (%s)" %
+            self._cursor.execute("INSERT INTO `%s` (`%s`, id) VALUES (%s)" %
                                  (self._table, fields_str, question_marks), values)
         self._conn.commit()
 
@@ -254,18 +254,18 @@ class DataStorage(Mapping):
 
     @protect_method_mt
     def __iter__(self):
-        self._cursor.execute("SELECT `id` FROM %s" % (self._table,))
+        self._cursor.execute("SELECT `id` FROM `%s`" % (self._table,))
         return (res[0] for res in self._cursor.fetchall())
 
     @protect_method_mt
     def __contains__(self, item):
-        self._cursor.execute("SELECT COUNT(*) FROM %s WHERE id = ?" %
+        self._cursor.execute("SELECT COUNT(*) FROM `%s` WHERE id = ?" %
                              (self._table,), (item,))
         return self._cursor.fetchone()[0] == 1
 
     @protect_method_mt
     def __getitem__(self, item):
-        self._cursor.execute("SELECT * FROM %s WHERE id = ?" %
+        self._cursor.execute("SELECT * FROM `%s` WHERE id = ?" %
                              (self._table,), (item,))
         row_raw = self._cursor.fetchone()
 
@@ -286,7 +286,7 @@ class DataStorage(Mapping):
 
     @protect_method_mt
     def __len__(self):
-        self._cursor.execute("SELECT COUNT(*) FROM %s" %
+        self._cursor.execute("SELECT COUNT(*) FROM `%s`" %
                              (self._table,))
         return self._cursor.fetchone()[0]
 
