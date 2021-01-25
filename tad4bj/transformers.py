@@ -24,7 +24,7 @@ def yaml_adapter(obj):
 
 
 def convert_json(s):
-    return json.load(s)
+    return json.loads(s)
 
 
 def json_adapter(obj):
