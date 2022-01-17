@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='tad4bj',
-      version='2.0.dev1',
+      version='1.3',
       description='Tabular Annotations of Data for Batch Jobs',
       long_description=long_description,
       long_description_content_type="text/markdown",
