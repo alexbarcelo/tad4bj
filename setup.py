@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='tad4bj',
-      version='1.3',
+      version='2.0.dev2',
       description='Tabular Annotations of Data for Batch Jobs',
       long_description=long_description,
       long_description_content_type="text/markdown",
@@ -27,7 +27,6 @@ setup(name='tad4bj',
           'Intended Audience :: Information Technology',
           'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
           'Operating System :: POSIX',
-          'Programming Language :: Python :: 2',
           'Programming Language :: Python :: 3',
           'Topic :: Database',
           'Topic :: Scientific/Engineering :: Information Analysis',

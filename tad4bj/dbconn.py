@@ -1,5 +1,6 @@
 import os
-from collections import Mapping, namedtuple
+from collections import namedtuple
+from collections.abc import Mapping
 import sqlite3
 import json
 from functools import wraps
