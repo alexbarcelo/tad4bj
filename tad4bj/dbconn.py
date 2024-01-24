@@ -1,8 +1,8 @@
+import json
 import os
+import sqlite3
 from collections import namedtuple
 from collections.abc import Mapping
-import sqlite3
-import json
 from functools import wraps
 from threading import RLock
 
@@ -11,7 +11,7 @@ try:
 except ImportError:
     yaml = None
 
-from . import transformers, handlers
+from . import handlers, transformers
 from .handlers import NULL_FIELD
 
 
@@ -23,10 +23,12 @@ def protect_method_mt(method):
     This can only be asumed in methods of classes that have a self.lock
     multithreading Lock instance.
     """
+
     @wraps(method)
     def wrapper(self, *args, **kwargs):
         with self.lock:
             return method(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -46,10 +48,14 @@ class DataSchema(object):
                 dict_data = json.load(f)
             elif path.endswith(".yaml"):
                 if not yaml:
-                    raise ImportError("No YAML available --could not load %s file" % path)
+                    raise ImportError(
+                        "No YAML available --could not load %s file" % path
+                    )
                 dict_data = yaml.load(f)
             else:
-                raise NotImplementedError("File type not recognized, unable to read %s" % path)
+                raise NotImplementedError(
+                    "File type not recognized, unable to read %s" % path
+                )
 
         return cls(dict_data)
 
@@ -65,7 +71,10 @@ class DataStorage(Mapping):
     the user has already access to the database itself, so there's no security
     issue.
     """
-    DATABASE_DEFAULT_PATH = os.path.expanduser(os.getenv("TAD4BJ_DATABASE", "~/tad4bj.db"))
+
+    DATABASE_DEFAULT_PATH = os.path.expanduser(
+        os.getenv("TAD4BJ_DATABASE", "~/tad4bj.db")
+    )
 
     def __init__(self, table_name, path=None):
         """
@@ -81,7 +90,7 @@ class DataStorage(Mapping):
         self._conn = sqlite3.connect(
             path,
             detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
-            check_same_thread=False
+            check_same_thread=False,
         )
         self._cursor = self._conn.cursor()
         self._table = table_name
@@ -99,8 +108,9 @@ class DataStorage(Mapping):
         if not self._cursor.description:
             raise RuntimeError("Could not get row schema --empty cursor")
 
-        self._rowtuple = namedtuple("Row%s" % self._table,
-                                    (s[0] for s in self._cursor.description))
+        self._rowtuple = namedtuple(
+            "Row%s" % self._table, (s[0] for s in self._cursor.description)
+        )
         return self._rowtuple
 
     @protect_method_mt
@@ -137,10 +147,11 @@ class DataStorage(Mapping):
 
     @protect_method_mt
     def prepare(self, schema):
-        creation_fields = ", ".join("'%s' %s" % (field_name, field_type)
-                                    for field_name, field_type in schema.fields)
-        self._cursor.execute("CREATE TABLE `%s` (%s)" %
-                             (self._table, creation_fields))
+        creation_fields = ", ".join(
+            "'%s' %s" % (field_name, field_type)
+            for field_name, field_type in schema.fields
+        )
+        self._cursor.execute("CREATE TABLE `%s` (%s)" % (self._table, creation_fields))
         self._metadata = dict(schema.fields)
         self._conn.commit()
 
@@ -155,11 +166,15 @@ class DataStorage(Mapping):
             return
 
         # Add all new columns
-        map(self._cursor.execute,
-            ("ALTER TABLE `%s` ADD COLUMN '%s' %s" %
-             (self._table, field_name, field_type)
-             for field_name, field_type in schema.fields
-             if field_name in new_fields))
+        map(
+            self._cursor.execute,
+            (
+                "ALTER TABLE `%s` ADD COLUMN '%s' %s"
+                % (self._table, field_name, field_type)
+                for field_name, field_type in schema.fields
+                if field_name in new_fields
+            ),
+        )
 
         self._metadata = dict(schema.fields)
         self._conn.commit()
@@ -172,9 +187,12 @@ class DataStorage(Mapping):
         except KeyError:
             pass
         if self._metadata is None:
-            self._cursor.execute("SELECT name, type FROM pragma_table_info(\"%s\")" % (self._table,))
+            self._cursor.execute('PRAGMA table_info("%s")' % (self._table,))
             result = self._cursor.fetchall()
-            self._metadata = {column_name: column_type for column_name, column_type in result}
+            self._metadata = {
+                column_name: column_type
+                for _, column_name, column_type, _, _, _ in result
+            }
 
         field_type = self._metadata.get(field_name)
 
@@ -193,9 +211,11 @@ class DataStorage(Mapping):
         if raw_return:
             suffix = ' as "[text]"'
         else:
-            suffix = ''
-        self._cursor.execute("SELECT `%s`%s FROM `%s` WHERE id=?" %
-                             (field, suffix, self._table), (jobid,))
+            suffix = ""
+        self._cursor.execute(
+            "SELECT `%s`%s FROM `%s` WHERE id=?" % (field, suffix, self._table),
+            (jobid,),
+        )
         record = self._cursor.fetchone()
         if record is None:
             # The record does not exist, default to NULL
@@ -215,11 +235,15 @@ class DataStorage(Mapping):
         else:
             value = self._get_field_adapter(field)(parameter)
 
-        ex = self._cursor.execute("UPDATE `%s` SET `%s` = ? WHERE id = ?" %
-                                  (self._table, field), (value, jobid))
+        ex = self._cursor.execute(
+            "UPDATE `%s` SET `%s` = ? WHERE id = ?" % (self._table, field),
+            (value, jobid),
+        )
         if ex.rowcount == 0:
-            self._cursor.execute("INSERT INTO `%s` (id, `%s`) VALUES (?, ?)" %
-                                 (self._table, field), (jobid, value))
+            self._cursor.execute(
+                "INSERT INTO `%s` (id, `%s`) VALUES (?, ?)" % (self._table, field),
+                (jobid, value),
+            )
         self._conn.commit()
 
     @protect_method_mt
@@ -227,7 +251,9 @@ class DataStorage(Mapping):
         set_str = ", ".join("`%s` = ?" % field_name for field_name in fields)
 
         if raw_parameters:
-            values = list(param if param is not NULL_FIELD else None for param in parameters)
+            values = list(
+                param if param is not NULL_FIELD else None for param in parameters
+            )
         else:
             values = list()
 
@@ -239,13 +265,17 @@ class DataStorage(Mapping):
 
         values.append(jobid)
 
-        ex = self._cursor.execute("UPDATE `%s` SET %s WHERE id = ?" %
-                                  (self._table, set_str), values)
+        ex = self._cursor.execute(
+            "UPDATE `%s` SET %s WHERE id = ?" % (self._table, set_str), values
+        )
         if ex.rowcount == 0:
             fields_str = ", ".join("`%s`" % field_name for field_name in fields)
             question_marks = ", ".join(["?"] * (len(fields) + 1))
-            self._cursor.execute("INSERT INTO `%s` (`%s`, id) VALUES (%s)" %
-                                 (self._table, fields_str, question_marks), values)
+            self._cursor.execute(
+                "INSERT INTO `%s` (`%s`, id) VALUES (%s)"
+                % (self._table, fields_str, question_marks),
+                values,
+            )
         self._conn.commit()
 
     def get_handler(self, jobid):
@@ -260,14 +290,16 @@ class DataStorage(Mapping):
 
     @protect_method_mt
     def __contains__(self, item):
-        self._cursor.execute("SELECT COUNT(*) FROM `%s` WHERE id = ?" %
-                             (self._table,), (item,))
+        self._cursor.execute(
+            "SELECT COUNT(*) FROM `%s` WHERE id = ?" % (self._table,), (item,)
+        )
         return self._cursor.fetchone()[0] == 1
 
     @protect_method_mt
     def __getitem__(self, item):
-        self._cursor.execute("SELECT * FROM `%s` WHERE id = ?" %
-                             (self._table,), (item,))
+        self._cursor.execute(
+            "SELECT * FROM `%s` WHERE id = ?" % (self._table,), (item,)
+        )
         row_raw = self._cursor.fetchone()
 
         if row_raw is None:
@@ -287,8 +319,7 @@ class DataStorage(Mapping):
 
     @protect_method_mt
     def __len__(self):
-        self._cursor.execute("SELECT COUNT(*) FROM `%s`" %
-                             (self._table,))
+        self._cursor.execute("SELECT COUNT(*) FROM `%s`" % (self._table,))
         return self._cursor.fetchone()[0]
 
 
