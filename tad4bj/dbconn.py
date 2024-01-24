@@ -4,7 +4,9 @@ import sqlite3
 from collections import namedtuple
 from collections.abc import Mapping
 from functools import wraps
+from random import random
 from threading import RLock
+from time import sleep
 
 try:
     import yaml
@@ -226,6 +228,23 @@ class DataStorage(Mapping):
         else:
             return value
 
+    def execute_with_retry(self, sql, params=None, max_retries=5):
+        """Execute a SQL statement with retries.
+
+        :param sql: SQL statement to execute.
+        :param params: Parameters for the SQL statement.
+        :param max_retries: Maximum number of retries.
+        :return: Result of the SQL statement.
+        """
+        for i in range(max_retries):
+            try:
+                return self._cursor.execute(sql, params)
+            except sqlite3.OperationalError as e:
+                if i == max_retries - 1:
+                    raise e
+                else:
+                    sleep(1 + random() * 2)
+
     @protect_method_mt
     def set_value(self, jobid, field, parameter, raw_parameter=False):
         if field is NULL_FIELD:
@@ -235,7 +254,7 @@ class DataStorage(Mapping):
         else:
             value = self._get_field_adapter(field)(parameter)
 
-        ex = self._cursor.execute(
+        ex = self.execute_with_retry(
             "UPDATE `%s` SET `%s` = ? WHERE id = ?" % (self._table, field),
             (value, jobid),
         )
@@ -265,13 +284,13 @@ class DataStorage(Mapping):
 
         values.append(jobid)
 
-        ex = self._cursor.execute(
+        ex = self.execute_with_retry(
             "UPDATE `%s` SET %s WHERE id = ?" % (self._table, set_str), values
         )
         if ex.rowcount == 0:
             fields_str = ", ".join("`%s`" % field_name for field_name in fields)
             question_marks = ", ".join(["?"] * (len(fields) + 1))
-            self._cursor.execute(
+            self.execute_with_retry(
                 "INSERT INTO `%s` (`%s`, id) VALUES (%s)"
                 % (self._table, fields_str, question_marks),
                 values,
