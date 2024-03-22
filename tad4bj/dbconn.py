@@ -34,10 +34,12 @@ def protect_method_mt(method):
     return wrapper
 
 
-class DataSchema(object):
+class DataSchema:
     def __init__(self, dict):
-        # ToDo: some error and sanity checking
-        self.__dict__.update(dict)
+        self._dict = dict
+
+    def __getattr__(self, name):
+        return self._dict[name]
 
     @classmethod
     def load_from_file(cls, path):
@@ -168,15 +170,13 @@ class DataStorage(Mapping):
             return
 
         # Add all new columns
-        map(
-            self._cursor.execute,
-            (
+        for field_name, field_type in schema.fields:
+            if field_name not in new_fields:
+                continue
+            self._cursor.execute(
                 "ALTER TABLE `%s` ADD COLUMN '%s' %s"
                 % (self._table, field_name, field_type)
-                for field_name, field_type in schema.fields
-                if field_name in new_fields
-            ),
-        )
+            )
 
         self._metadata = dict(schema.fields)
         self._conn.commit()
